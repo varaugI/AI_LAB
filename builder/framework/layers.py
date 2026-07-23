@@ -1,4 +1,5 @@
 import math
+import random
 from .math_ops import (
     random_matrix,
     zeros,
@@ -201,6 +202,13 @@ class DenseLayer:
     def parameter_count(self):
         return len(self.weights) * len(self.weights[0]) + len(self.biases[0])
 
+    def get_config(self):
+        return {
+            "type": "DenseLayer",
+            "input_size": len(self.weights),
+            "output_size": len(self.weights[0])
+        }
+
 
 class SigmoidLayer:
     def __init__(self):
@@ -216,6 +224,9 @@ class SigmoidLayer:
         derivative = sigmoid_derivative_from_output(self.output)
         return multiply_elementwise(output_gradient, derivative)
 
+    def get_config(self):
+        return {"type": "SigmoidLayer"}
+
 
 class ReLULayer:
     def __init__(self):
@@ -230,6 +241,9 @@ class ReLULayer:
             raise RuntimeError("Forward propagation must run before backward propagation.")
         derivative = relu_derivative(self.inputs)
         return multiply_elementwise(output_gradient, derivative)
+
+    def get_config(self):
+        return {"type": "ReLULayer"}
 
 
 class LeakyReLULayer:
@@ -252,6 +266,9 @@ class LeakyReLULayer:
         )
         return multiply_elementwise(output_gradient, derivative)
 
+    def get_config(self):
+        return {"type": "LeakyReLULayer", "alpha": self.alpha}
+
 
 class TanhLayer:
     def __init__(self):
@@ -265,6 +282,9 @@ class TanhLayer:
         if self.output is None:
             raise RuntimeError("Forward propagation must run before backward propagation.")
         return multiply_elementwise(output_gradient, tanh_derivative_from_output(self.output))
+
+    def get_config(self):
+        return {"type": "TanhLayer"}
 
 
 class SoftmaxLayer:
@@ -307,3 +327,45 @@ class SoftmaxLayer:
                 )
 
         return input_gradient
+
+    def get_config(self):
+        return {"type": "SoftmaxLayer"}
+
+
+class DropoutLayer:
+    def __init__(self, rate=0.5):
+        if not 0.0 <= rate < 1.0:
+            raise ValueError("Dropout rate must be in [0, 1).")
+        self.rate = rate
+        self.mask = None
+        self.is_training = False
+
+    def forward(self, inputs):
+        if not self.is_training:
+            return inputs
+            
+        rows, cols = matrix_shape(inputs)
+        self.mask = zeros(rows, cols)
+        output = zeros(rows, cols)
+        
+        scale = 1.0 / (1.0 - self.rate)
+        for i in range(rows):
+            for j in range(cols):
+                if random.random() > self.rate:
+                    self.mask[i][j] = scale
+                    output[i][j] = inputs[i][j] * scale
+        return output
+
+    def backward(self, output_gradient):
+        if not self.is_training:
+            return output_gradient
+            
+        rows, cols = matrix_shape(output_gradient)
+        input_gradient = zeros(rows, cols)
+        for i in range(rows):
+            for j in range(cols):
+                input_gradient[i][j] = output_gradient[i][j] * self.mask[i][j]
+        return input_gradient
+
+    def get_config(self):
+        return {"type": "DropoutLayer", "rate": self.rate}

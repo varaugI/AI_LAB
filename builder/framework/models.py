@@ -63,9 +63,11 @@ class Sequential:
                 layer.reset_optimizer_state()
         self._optimizer_step = 0
 
-    def forward(self, inputs):
+    def forward(self, inputs, training=False):
         output = inputs
         for layer in self.layers:
+            if hasattr(layer, "is_training"):
+                layer.is_training = training
             output = layer.forward(output)
         return output
 
@@ -92,7 +94,7 @@ class Sequential:
         if loss_type not in _LOSSES:
             raise ValueError(f"Unknown loss_type: {loss_type}")
         loss_fn, gradient_fn = _LOSSES[loss_type]
-        predictions = self.forward(inputs)
+        predictions = self.forward(inputs, training=True)
         loss = loss_fn(predictions, targets)
         self.backward(gradient_fn(predictions, targets))
         return loss
@@ -371,7 +373,7 @@ class Sequential:
         return self.train(inputs, targets, **kwargs)
 
     def predict(self, inputs):
-        return self.forward(inputs)
+        return self.forward(inputs, training=False)
 
     def predict_classes(self, inputs):
         return [argmax(row) for row in self.predict(inputs)]
@@ -447,19 +449,60 @@ class Sequential:
 
     def save(self, filename):
         dense_layers = self.get_weights()
+        architecture = [layer.get_config() for layer in self.layers if hasattr(layer, "get_config")]
         with open(filename, "w", encoding="utf-8") as file:
             json.dump(
                 {
-                    "version": 3,
+                    "version": 4,
                     "learning_rate": self.learning_rate,
                     "initial_learning_rate": self.initial_learning_rate,
                     "optimizer": self.optimizer,
                     "optimizer_params": self.optimizer_params,
+                    "architecture": architecture,
                     "dense_layers": dense_layers,
                 },
                 file,
                 indent=2,
             )
+
+    @classmethod
+    def from_file(cls, filename):
+        with open(filename, "r", encoding="utf-8") as file:
+            data = json.load(file)
+
+        if "architecture" not in data:
+            raise ValueError("File does not contain architecture information. Use model.load() instead.")
+
+        from .layers import (
+            DenseLayer, SigmoidLayer, ReLULayer, LeakyReLULayer,
+            TanhLayer, SoftmaxLayer, DropoutLayer
+        )
+        
+        layer_classes = {
+            "DenseLayer": DenseLayer,
+            "SigmoidLayer": SigmoidLayer,
+            "ReLULayer": ReLULayer,
+            "LeakyReLULayer": LeakyReLULayer,
+            "TanhLayer": TanhLayer,
+            "SoftmaxLayer": SoftmaxLayer,
+            "DropoutLayer": DropoutLayer
+        }
+
+        layers = []
+        for config in data["architecture"]:
+            layer_type = config.pop("type")
+            layer_class = layer_classes[layer_type]
+            layers.append(layer_class(**config))
+
+        model = cls(
+            layers=layers,
+            learning_rate=data.get("initial_learning_rate", data.get("learning_rate")),
+            optimizer=data.get("optimizer", "sgd"),
+            optimizer_params=data.get("optimizer_params")
+        )
+        model.set_weights(data["dense_layers"])
+        model.learning_rate = data.get("learning_rate")
+        return model
 
     def load(self, filename):
         with open(filename, "r", encoding="utf-8") as file:
