@@ -42,7 +42,7 @@ def main():
 
     print("Training the neural network on XOR gate using BCE loss...\n")
     # Notice we pass loss_type="bce" here!
-    network.train(training_inputs, training_targets, epochs=20_000, print_every=2000, loss_type="bce")
+    network.train(training_inputs, training_targets, epochs=20_000, print_every=2000, loss_type="bce", batch_size=16)
     network.save("xor_network.json")
     print("\nTraining completed.")
     print("Type 'exit' to stop.")

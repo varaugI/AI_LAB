@@ -46,7 +46,7 @@ def main():
     )
 
     print("Training the neural network on Quadrant Classification using CCE loss...\n")
-    network.train(training_inputs, training_targets, epochs=10_000, print_every=1000, loss_type="cce")
+    network.train(training_inputs, training_targets, epochs=10_000, print_every=1000, loss_type="cce", batch_size=32)
     network.save("quadrant_network.json")
     print("\nTraining completed.")
     print("Type 'exit' to stop.")

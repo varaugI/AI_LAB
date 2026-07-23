@@ -1,0 +1,3 @@
+# Only needed for PNG, JPEG, BMP, and other common image formats.
+# TXT bitmap and PGM files work without third-party packages.
+Pillow>=10.0

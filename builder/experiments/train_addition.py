@@ -44,7 +44,7 @@ def main():
     )
 
     print("Training the neural network on ADDITION...\n")
-    network.train(training_inputs, training_targets, epochs=10_000, print_every=500)
+    network.train(training_inputs, training_targets, epochs=10_000, print_every=500, batch_size=32)
     network.save("addition_network.json")
     print("\nTraining completed.")
     print("Type 'exit' to stop.")

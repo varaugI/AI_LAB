@@ -44,7 +44,7 @@ def main():
     )
 
     print("Training the neural network on DIVISION...\n")
-    network.train(training_inputs, training_targets, epochs=15_000, print_every=1000)
+    network.train(training_inputs, training_targets, epochs=15_000, print_every=1000, batch_size=32)
     network.save("division_network.json")
     print("\nTraining completed.")
     print("Type 'exit' to stop.")

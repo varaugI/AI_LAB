@@ -1,13 +1,34 @@
-# AI Math Experiments
+# Experiments
 
-This directory contains scripts to train neural networks on various mathematical operations.
+Run every command from the project root.
 
-### List of Completed Experiments:
-- [x] **Addition** (`train_addition.py`): Trains the network to add two numbers between 0 and 100.
-- [x] **Multiplication** (`train_multiplication.py`): Trains the network to multiply two numbers between 0 and 10.
-- [x] **Subtraction** (`train_subtraction.py`): Trains the network to subtract numbers, handling negative outputs.
-- [x] **Division** (`train_division.py`): Trains the network to divide two numbers, avoiding divide-by-zero.
-- [x] **Square** (`train_square.py`): Trains the network on a single-input non-linear curve ($y=x^2$).
-- [x] **Square Root** (`train_squareroot.py`): Trains the network on a single-input non-linear curve ($y=\sqrt{x}$).
-- [x] **XOR Logic Gate** (`train_xor.py`): Uses Binary Cross Entropy to classify inputs into 0 or 1, successfully learning the non-linearly separable XOR gate.
-- [x] **Quadrant Classification** (`train_quadrants.py`): Uses **Softmax** and **Categorical Cross Entropy (CCE)** to categorize a 2D coordinate into one of 4 classes.
+## OCR and text
+
+```bash
+python -m builder.experiments.demo_text_ocr
+python -m builder.experiments.make_text_sample --text "HELLO WORLD"
+python -m builder.experiments.recognize_text samples/sample_paragraph.txt
+python -m builder.experiments.train_text_pages
+python -m builder.experiments.teach_text page.png --transcript transcript.txt
+```
+
+## Character recognition
+
+```bash
+python -m builder.experiments.train_alphabet
+python -m builder.experiments.recognize_alphabet
+python -m builder.experiments.teach_alphabet
+```
+
+## Earlier neural-network exercises
+
+```bash
+python -m builder.experiments.train_xor
+python -m builder.experiments.train_addition
+python -m builder.experiments.train_subtraction
+python -m builder.experiments.train_multiplication
+python -m builder.experiments.train_division
+python -m builder.experiments.train_square
+python -m builder.experiments.train_squareroot
+python -m builder.experiments.train_quadrants
+```
