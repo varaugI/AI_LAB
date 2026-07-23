@@ -15,6 +15,7 @@ from builder.datasets.alphabet_data import (
 )
 from builder.framework import (
     DenseLayer,
+    DropoutLayer,
     LeakyReLULayer,
     Sequential,
     SoftmaxLayer,
@@ -26,11 +27,13 @@ def build_alphabet_model():
     input_size = CANVAS_WIDTH * CANVAS_HEIGHT
     return Sequential(
         layers=[
-            DenseLayer(input_size, 48),
+            DenseLayer(input_size, 128),
             LeakyReLULayer(alpha=0.05),
-            DenseLayer(48, 32),
+            DropoutLayer(rate=0.2),
+            DenseLayer(128, 64),
             TanhLayer(),
-            DenseLayer(32, len(LABELS)),
+            DropoutLayer(rate=0.1),
+            DenseLayer(64, len(LABELS)),
             SoftmaxLayer(),
         ],
         learning_rate=0.008,

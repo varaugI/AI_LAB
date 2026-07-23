@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novel Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="chat-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>AI Lab</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-btn active">Novel Assistant</button>
+            </nav>
+            <div class="sidebar-footer">
+                <p>Status: <span id="status-indicator" style="color: #10a37f;">●</span> Online</p>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <header class="chat-header">
+                <h1>Novel Assistant</h1>
+            </header>
+
+            <div id="chat-window" class="chat-window">
+                <div class="message assistant">
+                    <div class="avatar">AI</div>
+                    <div class="message-content">
+                        Hello! I am the Novel Assistant. I have read the texts you ingested. You can ask me questions about them, or type <code>/search [query]</code> to search my memory directly!
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-wrapper">
+                <div class="chat-input-container">
+                    <input type="text" id="chat-input" placeholder="Message Novel Assistant..." autocomplete="off">
+                    <button id="send-btn" class="btn primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </div>
+                <div class="disclaimer">AI can make mistakes. Verify important information.</div>
+            </div>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
