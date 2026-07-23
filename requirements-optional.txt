@@ -1,3 +1,11 @@
-# Only needed for PNG, JPEG, BMP, and other common image formats.
-# TXT bitmap and PGM files work without third-party packages.
-Pillow>=10.0
+# Image OCR and bitmap support
+pillow>=10.0
+
+# Extract text from ordinary PDFs
+pypdf>=5.0
+
+# Optional OCR fallback for scanned/image-only PDFs
+pymupdf>=1.24
+pytesseract>=0.3.10
+
+# Note: scanned-PDF OCR also needs the Tesseract application installed locally.

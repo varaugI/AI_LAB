@@ -447,37 +447,39 @@ class Sequential:
         print(f"Total trainable parameters: {total}")
         print(f"Optimizer: {self.optimizer} | Learning rate: {self.learning_rate}")
 
+    def to_dict(self):
+        """Return a JSON-serializable description of the network.
+
+        This makes the framework reusable inside larger saved artifacts such as
+        language models without first writing a temporary model file.
+        """
+        return {
+            "version": 5,
+            "learning_rate": self.learning_rate,
+            "initial_learning_rate": self.initial_learning_rate,
+            "optimizer": self.optimizer,
+            "optimizer_params": self.optimizer_params,
+            "architecture": [
+                layer.get_config() for layer in self.layers
+                if hasattr(layer, "get_config")
+            ],
+            "dense_layers": self.get_weights(),
+        }
+
     def save(self, filename):
-        dense_layers = self.get_weights()
-        architecture = [layer.get_config() for layer in self.layers if hasattr(layer, "get_config")]
         with open(filename, "w", encoding="utf-8") as file:
-            json.dump(
-                {
-                    "version": 4,
-                    "learning_rate": self.learning_rate,
-                    "initial_learning_rate": self.initial_learning_rate,
-                    "optimizer": self.optimizer,
-                    "optimizer_params": self.optimizer_params,
-                    "architecture": architecture,
-                    "dense_layers": dense_layers,
-                },
-                file,
-                indent=2,
-            )
+            json.dump(self.to_dict(), file, indent=2)
 
     @classmethod
-    def from_file(cls, filename):
-        with open(filename, "r", encoding="utf-8") as file:
-            data = json.load(file)
-
+    def from_dict(cls, data):
         if "architecture" not in data:
-            raise ValueError("File does not contain architecture information. Use model.load() instead.")
+            raise ValueError("Data does not contain architecture information.")
 
         from .layers import (
             DenseLayer, SigmoidLayer, ReLULayer, LeakyReLULayer,
             TanhLayer, SoftmaxLayer, DropoutLayer
         )
-        
+
         layer_classes = {
             "DenseLayer": DenseLayer,
             "SigmoidLayer": SigmoidLayer,
@@ -489,20 +491,31 @@ class Sequential:
         }
 
         layers = []
-        for config in data["architecture"]:
-            layer_type = config.pop("type")
-            layer_class = layer_classes[layer_type]
-            layers.append(layer_class(**config))
+        for saved_config in data["architecture"]:
+            config = dict(saved_config)
+            layer_type = config.pop("type", None)
+            if layer_type not in layer_classes:
+                raise ValueError(f"Unknown saved layer type: {layer_type}")
+            layers.append(layer_classes[layer_type](**config))
 
+        learning_rate = data.get(
+            "initial_learning_rate",
+            data.get("learning_rate", 0.05),
+        )
         model = cls(
             layers=layers,
-            learning_rate=data.get("initial_learning_rate", data.get("learning_rate")),
+            learning_rate=learning_rate,
             optimizer=data.get("optimizer", "sgd"),
-            optimizer_params=data.get("optimizer_params")
+            optimizer_params=data.get("optimizer_params"),
         )
         model.set_weights(data["dense_layers"])
-        model.learning_rate = data.get("learning_rate")
+        model.learning_rate = data.get("learning_rate", learning_rate)
         return model
+
+    @classmethod
+    def from_file(cls, filename):
+        with open(filename, "r", encoding="utf-8") as file:
+            return cls.from_dict(json.load(file))
 
     def load(self, filename):
         with open(filename, "r", encoding="utf-8") as file:

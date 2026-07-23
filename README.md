@@ -1,4 +1,4 @@
-# AI LAB — Neural Networks and OCR From Scratch
+# AI LAB — Neural Networks, OCR, and Book Learning From Scratch
 
 An educational neural-network framework written with ordinary Python lists. The
 network mathematics, dense layers, activations, losses, optimizers, training
@@ -10,6 +10,9 @@ This version progresses from arithmetic and XOR to:
 2. Finding characters, spaces, words, and lines inside an image.
 3. Reconstructing complete sentences and multi-line paragraphs.
 4. Continuing training from labelled word or paragraph pages.
+5. Reading TXT, PDF, and EPUB novels.
+6. Building searchable book memory and answering from imported passages.
+7. Learning word sequences with n-gram and tiny neural language models.
 
 The OCR system does **not** contain a dictionary of allowed answers. It can read
 new letter combinations because it composes the characters predicted by the
@@ -43,6 +46,145 @@ neural network.
 - TXT bitmap and PGM support using only the standard library.
 - Optional PNG, JPEG, and BMP support through Pillow.
 
+## Learn from PDF and EPUB novels
+
+The book-learning system has three separate abilities:
+
+1. **Document reading** extracts text and remembers page/chapter locations.
+2. **Grounded replies** search the imported books and construct an answer from
+   relevant sentences, with sources.
+3. **Language modelling** learns word sequences for text continuation. The
+   n-gram model is practical for whole novels; the tiny neural model is an
+   educational from-scratch implementation with a deliberately small vocabulary.
+
+Install PDF support:
+
+```bash
+pip install -r requirements-optional.txt
+```
+
+EPUB extraction itself uses Python's standard library and requires no extra
+package. Ordinary text-based PDFs use `pypdf`. Image-only/scanned PDFs can use
+optional OCR when Tesseract is installed on the computer.
+
+### Build searchable book memory
+
+Import one or more files, or an entire folder:
+
+```bash
+python -m builder.experiments.ingest_novels my_books/ \
+  --output novel_library.json
+```
+
+Supported inputs:
+
+```text
+.txt  .md  .pdf  .epub
+```
+
+For a scanned PDF:
+
+```bash
+python -m builder.experiments.ingest_novels scanned_book.pdf \
+  --ocr-scanned \
+  --output novel_library.json
+```
+
+### Ask questions about the novels
+
+Interactive mode:
+
+```bash
+python -m builder.experiments.chat_with_novels \
+  --index novel_library.json
+```
+
+Ask one question:
+
+```bash
+python -m builder.experiments.chat_with_novels \
+  --index novel_library.json \
+  --question "Why did the character leave the city?"
+```
+
+The reply contains `[1]`, `[2]`, and similar source markers followed by the
+book title and page/chapter location. This avoids pretending that generated
+text is definitely present in the novel.
+
+Run the included demonstration:
+
+```bash
+python -m builder.experiments.demo_novel_assistant
+```
+
+### Train a practical word-sequence model
+
+```bash
+python -m builder.experiments.train_novel_language my_novel.epub \
+  --mode ngram \
+  --order 4 \
+  --output novel_ngram.json
+```
+
+Generate a continuation:
+
+```bash
+python -m builder.experiments.generate_novel_text novel_ngram.json \
+  --seed-text "The rider reached the gate" \
+  --tokens 80
+```
+
+### Train the tiny neural next-word model
+
+This model uses the project's own dense layers, weights, biases, softmax,
+backpropagation, and Adam optimizer:
+
+```bash
+python -m builder.experiments.train_novel_language my_novel.epub \
+  --mode neural \
+  --vocabulary 300 \
+  --max-samples 4000 \
+  --epochs 8 \
+  --output novel_neural_language.json
+```
+
+Pure-Python dense training becomes slow as vocabulary and sample counts grow.
+Start small, verify that loss falls, and then increase them gradually.
+
+### Use the complete learning system in Python
+
+```python
+from builder.books import NovelLearningSystem
+
+brain = NovelLearningSystem()
+report = brain.learn_files([
+    "books/novel_one.pdf",
+    "books/novel_two.epub",
+])
+
+reply = brain.ask("Who discovered the hidden chamber?")
+print(reply.answer)
+for source in reply.sources:
+    print(source.title, source.location)
+
+brain.save_library("novel_library.json")
+
+brain.train_style_model(order=4)
+print(brain.continue_text("Beyond the northern wall", max_tokens=60))
+brain.save_style_model("novel_style.json")
+```
+
+### What “learn and reply” means here
+
+The searchable memory is not a giant pretrained language model. It indexes the
+novel's actual text, retrieves relevant passages, and builds an extractive reply.
+That makes factual answers more dependable and lets the system work on a normal
+computer.
+
+The language models learn patterns and can create continuations, but generated
+text may be inaccurate or nonsensical. They are kept separate from factual
+answers so creative generation does not silently become a fake quotation.
+
 ## Test everything
 
 Run from the project root:
@@ -52,7 +194,8 @@ python -m unittest discover -s tests -v
 ```
 
 The tests include matrix operations, optimizers, XOR, model persistence,
-alphabet classification, word recognition, paragraph recognition, page-level
+alphabet classification, word recognition, paragraph recognition, PDF/EPUB/TXT
+reading, book retrieval and replies, language-model persistence, page-level
 training data extraction, and OCR error metrics.
 
 ## Fastest OCR demonstration
@@ -302,3 +445,14 @@ The next major milestones are:
 
 At this stage, the project genuinely recognizes complete unseen words and
 paragraphs, but it does so by composing individually recognized characters.
+
+### Book-learning limitations
+
+- Text-based PDFs work directly; image-only PDFs need Tesseract OCR.
+- PDF extraction may preserve headers, footers, or unusual reading order.
+- EPUB support reads normal reflowable HTML chapters, not DRM-protected books.
+- The grounded assistant is extractive. It can answer from imported evidence,
+  but it does not have the broad reasoning ability of a large transformer model.
+- The tiny neural word model is for education. Training a ChatGPT-scale model
+  requires far more data, GPU compute, memory, and specialized architecture.
+- Process books that you are allowed to use and avoid redistributing their text.

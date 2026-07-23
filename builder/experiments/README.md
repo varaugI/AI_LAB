@@ -2,6 +2,17 @@
 
 Run every command from the project root.
 
+## Novels, PDFs, EPUBs, and replies
+
+```bash
+python -m builder.experiments.ingest_novels books/ --output novel_library.json
+python -m builder.experiments.chat_with_novels --index novel_library.json
+python -m builder.experiments.demo_novel_assistant
+python -m builder.experiments.train_novel_language book.epub --mode ngram
+python -m builder.experiments.train_novel_language book.pdf --mode neural
+python -m builder.experiments.generate_novel_text novel_ngram.json --seed-text "Once"
+```
+
 ## OCR and text
 
 ```bash
