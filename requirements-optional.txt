@@ -9,3 +9,6 @@ pymupdf>=1.24
 pytesseract>=0.3.10
 
 # Note: scanned-PDF OCR also needs the Tesseract application installed locally.
+
+# Local browser chat interface
+flask>=3.0

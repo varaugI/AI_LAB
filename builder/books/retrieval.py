@@ -62,16 +62,31 @@ class BM25Index:
         # Robertson/Sparck Jones IDF with +1 for stable positive scores.
         return math.log(1.0 + (n - frequency + 0.5) / (frequency + 0.5))
 
-    def search(self, query: str, limit: int = 5, minimum_score: float = 0.0) -> list[SearchResult]:
+    def search(
+        self,
+        query: str,
+        limit: int = 5,
+        minimum_score: float = 0.0,
+        domain: str | None = None,
+        titles: list[str] | set[str] | None = None,
+    ) -> list[SearchResult]:
+        """Search with BM25 plus small phrase/title boosts and metadata filters."""
         if limit <= 0:
             return []
         query_terms = list(dict.fromkeys(tokenize(query)))
         if not query_terms or not self.chunks:
             return []
 
+        normalized_query = " ".join(query_terms)
+        title_filter = {item.lower() for item in titles or []}
         results: list[SearchResult] = []
         average = self.average_document_length or 1.0
         for index, chunk in enumerate(self.chunks):
+            if domain and domain != "all" and getattr(chunk, "domain", "general") != domain:
+                continue
+            if title_filter and chunk.title.lower() not in title_filter:
+                continue
+
             length = self.document_lengths[index]
             frequencies = self.term_frequencies[index]
             score = 0.0
@@ -88,6 +103,13 @@ class BM25Index:
                     term_frequency * (self.k1 + 1.0) / denominator
                 )
 
+            lowered_text = " ".join(tokenize(chunk.text))
+            if len(query_terms) >= 2 and normalized_query in lowered_text:
+                score += 2.5
+            lowered_title = chunk.title.lower()
+            title_matches = sum(1 for term in query_terms if term in lowered_title)
+            score += 0.35 * title_matches
+
             if score > minimum_score:
                 results.append(SearchResult(chunk, score, matched))
 
@@ -96,7 +118,7 @@ class BM25Index:
 
     def to_dict(self):
         return {
-            "version": 1,
+            "version": 2,
             "type": "bm25_book_index",
             "k1": self.k1,
             "b": self.b,

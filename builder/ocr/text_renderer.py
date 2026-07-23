@@ -89,7 +89,8 @@ def render_text(
                 x += word_spacing * scale
                 continue
 
-            pattern = LETTER_PATTERNS[character]
+            variants = LETTER_PATTERNS[character]
+            pattern = variants[0] if variants and not isinstance(variants[0], str) else variants
             for source_y, row in enumerate(pattern):
                 for source_x, pixel in enumerate(row):
                     if pixel != "#":

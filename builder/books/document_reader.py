@@ -10,13 +10,27 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 from html.parser import HTMLParser
 from pathlib import Path
+import csv
+import json
 import re
 import xml.etree.ElementTree as ET
 import zipfile
 from urllib.parse import unquote
 
 
-SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".epub"}
+SUPPORTED_EXTENSIONS = {
+    ".txt", ".md", ".rst", ".pdf", ".epub", ".docx", ".html", ".htm",
+    ".json", ".csv", ".xml", ".yaml", ".yml", ".toml", ".ini", ".cfg",
+    ".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".c", ".cc", ".cpp",
+    ".h", ".hpp", ".cs", ".go", ".rs", ".php", ".rb", ".sql", ".sh",
+    ".ps1", ".kt", ".swift",
+}
+
+CODE_EXTENSIONS = {
+    ".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".c", ".cc", ".cpp",
+    ".h", ".hpp", ".cs", ".go", ".rs", ".php", ".rb", ".sql", ".sh",
+    ".ps1", ".kt", ".swift",
+}
 
 
 @dataclass
@@ -36,6 +50,7 @@ class LoadedDocument:
     title: str
     kind: str
     sections: list[DocumentSection]
+    domain: str = "general"
 
     @property
     def text(self) -> str:
@@ -109,13 +124,131 @@ def _decode_bytes(data: bytes) -> str:
     return data.decode("utf-8", errors="replace")
 
 
+
+def infer_domain(title: str, text: str, extension: str = "") -> str:
+    """Infer a broad library domain without requiring the user to classify files."""
+    extension = extension.lower()
+    if extension in CODE_EXTENSIONS:
+        return "programming"
+    sample = f"{title}\n{text[:12000]}".lower()
+    signals = {
+        "law": (
+            "court", "statute", "plaintiff", "defendant", "jurisdiction", "legal",
+            "constitution", "section ", "article ", "judgment", "liability", "contract",
+        ),
+        "programming": (
+            "source code", "programming", "algorithm", "function ", "class ", "api ",
+            "compiler", "database", "javascript", "python", "java ", "software",
+        ),
+        "school": (
+            "exercise", "learning objective", "chapter", "textbook", "theorem", "formula",
+            "question", "answer", "biology", "chemistry", "physics", "mathematics",
+            "history", "geography",
+        ),
+        "fiction": (
+            "chapter", "novel", "prologue", "epilogue", "said", "asked", "replied",
+        ),
+    }
+    scores = {name: sum(sample.count(term) for term in terms) for name, terms in signals.items()}
+    if extension == ".epub":
+        scores["fiction"] += 2
+    best = max(scores, key=scores.get)
+    return best if scores[best] >= 2 else "general"
+
+
+def read_html_document(path: str | Path) -> LoadedDocument:
+    path = Path(path)
+    text = _html_to_text(path.read_bytes())
+    domain = infer_domain(path.stem, text, path.suffix)
+    return LoadedDocument(
+        str(path), path.stem, "html",
+        [DocumentSection(str(path), path.stem, "document", text)],
+        domain=domain,
+    )
+
+
+def read_docx(path: str | Path) -> LoadedDocument:
+    """Read DOCX text with the standard library; no python-docx dependency."""
+    path = Path(path)
+    if not zipfile.is_zipfile(path):
+        raise ValueError(f"Not a valid DOCX file: {path}")
+    try:
+        with zipfile.ZipFile(path) as archive:
+            root = ET.fromstring(archive.read("word/document.xml"))
+    except (KeyError, ET.ParseError) as exc:
+        raise ValueError(f"Could not read DOCX text: {path}") from exc
+
+    paragraphs = []
+    for paragraph in root.iter():
+        if _xml_local_name(paragraph.tag) != "p":
+            continue
+        pieces = []
+        for node in paragraph.iter():
+            name = _xml_local_name(node.tag)
+            if name == "t" and node.text:
+                pieces.append(node.text)
+            elif name == "tab":
+                pieces.append("\t")
+            elif name in {"br", "cr"}:
+                pieces.append("\n")
+        value = "".join(pieces).strip()
+        if value:
+            paragraphs.append(value)
+    text = normalize_text("\n\n".join(paragraphs))
+    if not text:
+        raise ValueError(f"No readable text was found in DOCX: {path}")
+    domain = infer_domain(path.stem, text, path.suffix)
+    return LoadedDocument(
+        str(path), path.stem, "docx",
+        [DocumentSection(str(path), path.stem, "document", text)],
+        domain=domain,
+    )
+
+
+def read_json_document(path: str | Path) -> LoadedDocument:
+    path = Path(path)
+    raw = _decode_bytes(path.read_bytes())
+    try:
+        value = json.loads(raw)
+        text = json.dumps(value, ensure_ascii=False, indent=2)
+    except json.JSONDecodeError:
+        text = raw
+    text = normalize_text(text)
+    domain = infer_domain(path.stem, text, path.suffix)
+    return LoadedDocument(
+        str(path), path.stem, "json",
+        [DocumentSection(str(path), path.stem, "document", text)],
+        domain=domain,
+    )
+
+
+def read_csv_document(path: str | Path) -> LoadedDocument:
+    path = Path(path)
+    raw = _decode_bytes(path.read_bytes())
+    rows = []
+    for row_number, row in enumerate(csv.reader(raw.splitlines()), start=1):
+        if not row:
+            continue
+        rows.append(f"Row {row_number}: " + " | ".join(cell.strip() for cell in row))
+    text = normalize_text("\n".join(rows))
+    domain = infer_domain(path.stem, text, path.suffix)
+    return LoadedDocument(
+        str(path), path.stem, "csv",
+        [DocumentSection(str(path), path.stem, "table", text)],
+        domain=domain,
+    )
+
 def read_text_document(path: str | Path) -> LoadedDocument:
     path = Path(path)
     text = normalize_text(_decode_bytes(path.read_bytes()))
     section = DocumentSection(
         source=str(path), title=path.stem, location="document", text=text
     )
-    return LoadedDocument(str(path), path.stem, path.suffix.lower().lstrip("."), [section])
+    kind = path.suffix.lower().lstrip(".") or "text"
+    return LoadedDocument(
+        str(path), path.stem, kind, [section],
+        domain=infer_domain(path.stem, text, path.suffix),
+    )
 
 
 def _xml_local_name(tag: str) -> str:
@@ -218,7 +351,7 @@ def read_epub(path: str | Path, max_sections: int | None = None) -> LoadedDocume
 
     if not sections:
         raise ValueError(f"No readable HTML chapters were found in EPUB: {path}")
-    return LoadedDocument(str(path), title, "epub", sections)
+    return LoadedDocument(str(path), title, "epub", sections, domain=infer_domain(title, " ".join(s.text[:2000] for s in sections), ".epub"))
 
 
 def _ocr_pdf_page(path: Path, page_index: int, dpi: int = 180) -> str:
@@ -293,7 +426,7 @@ def read_pdf(
     if not sections:
         hint = " Enable ocr_scanned=True for image-only pages." if not ocr_scanned else ""
         raise ValueError(f"No readable text was found in PDF: {path}.{hint}")
-    return LoadedDocument(str(path), title, "pdf", sections)
+    return LoadedDocument(str(path), title, "pdf", sections, domain=infer_domain(title, " ".join(s.text[:2000] for s in sections), ".pdf"))
 
 
 def read_document(
@@ -314,6 +447,14 @@ def read_document(
         return read_pdf(path, max_pages=max_pages, ocr_scanned=ocr_scanned)
     if extension == ".epub":
         return read_epub(path, max_sections=max_sections)
+    if extension == ".docx":
+        return read_docx(path)
+    if extension in {".html", ".htm"}:
+        return read_html_document(path)
+    if extension == ".json":
+        return read_json_document(path)
+    if extension == ".csv":
+        return read_csv_document(path)
     return read_text_document(path)
 
 

@@ -31,6 +31,8 @@ class TextChunk:
     location: str
     text: str
     word_count: int
+    domain: str = "general"
+    kind: str = "text"
 
     def to_dict(self):
         return asdict(self)
@@ -71,6 +73,7 @@ def chunk_documents(
     next_id = 0
     for document in documents:
         for section in document.sections:
+            section_chunk_start = len(chunks)
             paragraphs = [part.strip() for part in re.split(r"\n\s*\n", section.text) if part.strip()]
             if not paragraphs:
                 paragraphs = [section.text]
@@ -93,8 +96,9 @@ def chunk_documents(
             for group_number, group in enumerate(groups, start=1):
                 for word_offset, text in _window_words(group, max_words, overlap_words):
                     count = len(text.split())
-                    if count < minimum_words and chunks:
-                        # A tiny ending fragment is less useful than the preceding overlap.
+                    if count < minimum_words and len(chunks) > section_chunk_start:
+                        # Skip only a tiny trailing fragment from this same section.
+                        # A short standalone note or source file must remain searchable.
                         continue
                     chunks.append(TextChunk(
                         chunk_id=next_id,
@@ -103,6 +107,8 @@ def chunk_documents(
                         location=f"{section.location}, part {group_number}, word {word_offset + 1}",
                         text=text,
                         word_count=count,
+                        domain=getattr(document, "domain", "general"),
+                        kind=getattr(document, "kind", "text"),
                     ))
                     next_id += 1
     return chunks

@@ -5,3 +5,9 @@ venv/
 .env
 .DS_Store
 *.log
+conversation_memory.json
+uploaded_books/
+*.tmp
+uploaded_documents/
+knowledge_library.json
+*.local.json

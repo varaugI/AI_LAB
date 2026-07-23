@@ -118,12 +118,15 @@ class NovelAssistant:
         max_passages: int = 5,
         max_sentences: int = 4,
         max_answer_characters: int = 1400,
+        search_query: str | None = None,
+        domain: str | None = None,
     ) -> AssistantReply:
         question = question.strip()
         if not question:
             return AssistantReply("Please enter a question about the imported books.", [], 0.0)
 
-        results = self.index.search(question, limit=max_passages)
+        retrieval_query = (search_query or question).strip()
+        results = self.index.search(retrieval_query, limit=max_passages, domain=domain)
         if not results:
             return AssistantReply(
                 "I could not find relevant material in the imported books. Try names, places, events, or distinctive words from the text.",
@@ -131,7 +134,7 @@ class NovelAssistant:
                 0.0,
             )
 
-        ranked = self._rank_sentences(question, results)
+        ranked = self._rank_sentences(retrieval_query, results)
         selected = []
         used_chunks = set()
         character_count = 0
@@ -185,8 +188,8 @@ class NovelAssistant:
 
         highest = results[0].score
         matched = len(results[0].matched_terms)
-        question_term_count = max(1, len(self._question_terms(question)))
-        coverage = matched / question_term_count
+        question_term_count = max(1, len(self._question_terms(retrieval_query)))
+        coverage = min(1.0, matched / question_term_count)
         confidence = min(
             0.95,
             0.12 + 0.48 * coverage + 0.28 * (1.0 - math.exp(-highest / 5.0)),

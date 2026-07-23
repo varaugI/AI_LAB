@@ -3,51 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Novel Assistant</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <title>AI LAB Knowledge Assistant</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="chat-layout">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <h2>AI Lab</h2>
-            </div>
-            <nav class="sidebar-nav">
-                <button class="nav-btn active">Novel Assistant</button>
-            </nav>
-            <div class="sidebar-footer">
-                <p>Status: <span id="status-indicator" style="color: #10a37f;">●</span> Online</p>
-            </div>
-        </aside>
+<div class="app-shell">
+    <aside class="sidebar">
+        <div>
+            <p class="eyebrow">LOCAL KNOWLEDGE AI</p>
+            <h1>AI LAB Assistant</h1>
+            <p class="muted">Chat with novels, textbooks, law material, coding books, notes, and source code.</p>
+        </div>
 
-        <!-- Main Chat Area -->
-        <main class="chat-main">
-            <header class="chat-header">
-                <h1>Novel Assistant</h1>
-            </header>
+        <section class="panel">
+            <h2>Library</h2>
+            <p id="library-status" class="status">Checking…</p>
+            <p id="backend-status" class="small muted">Reply engine: checking…</p>
+            <div id="domain-stats" class="domain-stats"></div>
+            <div id="book-list" class="book-list"></div>
+        </section>
 
-            <div id="chat-window" class="chat-window">
-                <div class="message assistant">
-                    <div class="avatar">AI</div>
-                    <div class="message-content">
-                        Hello! I am the Novel Assistant. I have read the texts you ingested. You can ask me questions about them, or type <code>/search [query]</code> to search my memory directly!
-                    </div>
+        <section class="panel">
+            <h2>Add knowledge</h2>
+            <label class="upload-box" for="book-files">
+                <span>Choose books, documents, data, or code</span>
+                <input id="book-files" type="file" multiple>
+            </label>
+            <label class="field-label" for="upload-domain">Document category</label>
+            <select id="upload-domain" class="select-control">
+                <option value="auto">Detect automatically</option>
+                <option value="fiction">Novel / fiction</option>
+                <option value="school">School / textbook</option>
+                <option value="law">Law</option>
+                <option value="programming">Programming</option>
+                <option value="general">General</option>
+            </select>
+            <button id="upload-btn" class="button secondary">Import selected files</button>
+            <p id="upload-status" class="small muted"></p>
+        </section>
+
+        <section class="panel">
+            <h2>Reply engine</h2>
+            <label class="field-label" for="backend-select">Engine</label>
+            <select id="backend-select" class="select-control">
+                <option value="extractive">Built-in offline</option>
+                <option value="ollama">Local Ollama model</option>
+            </select>
+            <label class="field-label" for="model-name">Ollama model</label>
+            <input id="model-name" class="text-control" value="llama3.2:3b" aria-label="Ollama model name">
+            <button id="backend-btn" class="button secondary">Apply reply engine</button>
+            <p id="backend-message" class="small muted"></p>
+        </section>
+
+        <button id="clear-memory-btn" class="button ghost">Clear conversation memory</button>
+    </aside>
+
+    <main class="main">
+        <header class="toolbar">
+            <div class="mode-group" role="group" aria-label="Assistant mode">
+                <button class="mode active" data-mode="chat">Chat</button>
+                <button class="mode" data-mode="explain">Explain</button>
+                <button class="mode" data-mode="study">Study</button>
+                <button class="mode" data-mode="code">Code</button>
+                <button class="mode" data-mode="legal">Law</button>
+                <button class="mode" data-mode="search">Search</button>
+                <button class="mode" data-mode="summary">Summary</button>
+                <button class="mode" data-mode="characters">Characters</button>
+            </div>
+            <div class="toolbar-meta">
+                <select id="chat-scope" class="select-control compact" aria-label="Knowledge scope">
+                    <option value="hybrid">Library + model</option>
+                    <option value="library">Library only</option>
+                </select>
+                <select id="chat-domain" class="select-control compact" aria-label="Search domain">
+                    <option value="all">All knowledge</option>
+                    <option value="fiction">Fiction</option>
+                    <option value="school">School</option>
+                    <option value="law">Law</option>
+                    <option value="programming">Programming</option>
+                    <option value="general">General</option>
+                </select>
+                <div id="memory-count" class="memory-count">0 remembered turns</div>
+            </div>
+        </header>
+
+        <section id="chat-window" class="chat-window" aria-live="polite">
+            <article class="message assistant">
+                <div class="avatar">AI</div>
+                <div class="bubble">
+                    <strong>Feed me your material, then chat with it.</strong>
+                    <p>I retrieve relevant passages from your library and cite them. Connect a local Ollama model for more natural ChatGPT-like explanations and conversations.</p>
                 </div>
-            </div>
+            </article>
+        </section>
 
-            <div class="chat-input-wrapper">
-                <div class="chat-input-container">
-                    <input type="text" id="chat-input" placeholder="Message Novel Assistant..." autocomplete="off">
-                    <button id="send-btn" class="btn primary">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-                    </button>
-                </div>
-                <div class="disclaimer">AI can make mistakes. Verify important information.</div>
+        <form id="chat-form" class="composer">
+            <div class="composer-inner">
+                <textarea id="chat-input" rows="1" placeholder="Ask anything about your imported knowledge…"></textarea>
+                <button id="send-btn" type="submit" class="send" aria-label="Send">➜</button>
             </div>
-        </main>
-    </div>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+            <p id="mode-hint" class="hint">Chat mode answers from relevant library passages and remembers recent turns.</p>
+        </form>
+    </main>
+</div>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

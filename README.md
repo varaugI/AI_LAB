@@ -1,4 +1,22 @@
-# AI LAB — Neural Networks, OCR, and Book Learning From Scratch
+# AI LAB — From-Scratch Neural Networks and a Local Knowledge Assistant
+
+
+## New: chat with any kind of knowledge
+
+AI LAB now accepts novels, school books, law books, coding books, DOCX files,
+HTML, structured data, and source code. It automatically classifies the material,
+retrieves relevant passages, remembers follow-up context, and cites the source.
+
+For natural ChatGPT-like replies, connect a local Ollama model. The project still
+works without one using its built-in extractive engine.
+
+Start here: **[KNOWLEDGE_ASSISTANT.md](KNOWLEDGE_ASSISTANT.md)**
+
+```bash
+pip install -r requirements-web.txt
+pip install -r requirements-optional.txt
+python -m builder.app
+```
 
 An educational neural-network framework written with ordinary Python lists. The
 network mathematics, dense layers, activations, losses, optimizers, training
@@ -17,6 +35,52 @@ This version progresses from arithmetic and XOR to:
 The OCR system does **not** contain a dictionary of allowed answers. It can read
 new letter combinations because it composes the characters predicted by the
 neural network.
+
+## Earlier novel-reader stage (still supported)
+
+This upgrade adds a more complete reader application around the book index:
+
+- Conversational follow-up questions with persistent local memory.
+- Extractive book and whole-library summaries with source markers.
+- Recurring-character profiles, first appearances, evidence sentences, and
+  simple relationship counts based on sentence co-occurrence.
+- A safer local browser interface with document upload, Ask, Search, Summary,
+  Characters, and Character modes.
+- A repaired bitmap renderer and canonical A-Z evaluation path.
+
+Conversation memory is used only to expand searches such as “Where did he go?”
+after a previous question identified a character. It never replaces the book
+passages used as evidence.
+
+### Run the browser interface
+
+```bash
+pip install -r requirements-web.txt
+python -m builder.app
+```
+
+Then open `http://127.0.0.1:5000` in a browser. Documents can be uploaded directly
+through the sidebar. The current application saves `knowledge_library.json`,
+puts uploads in `uploaded_documents/`, and stores chat context separately in
+`conversation_memory.json`.
+
+### Conversational command-line reader
+
+```bash
+python -m builder.experiments.chat_with_novels \
+  --index novel_library.json \
+  --memory conversation_memory.json
+```
+
+Available commands include `/summary`, `/summary BOOK TITLE`, `/characters`,
+`/character NAME`, `/memory`, `/clear`, and `/search QUERY`.
+
+Standalone reports:
+
+```bash
+python -m builder.experiments.summarize_novels --index novel_library.json
+python -m builder.experiments.analyze_characters --index novel_library.json
+```
 
 ## What this version includes
 

@@ -153,12 +153,20 @@ def create_alphabet_dataset(copies_per_letter=10, noise_probability=0.015,
     return list(inputs), list(targets), list(letters)
 
 
-def create_clean_alphabet_data():
+def create_clean_alphabet_data(include_all_variants=False):
+    """Return centered, noise-free examples.
+
+    By default this returns exactly one canonical sample per letter, which is
+    convenient for evaluation. Set ``include_all_variants=True`` to include
+    every alternate glyph shape stored in ``LETTER_PATTERNS``.
+    """
     inputs = []
     targets = []
     letters = []
     for index, letter in enumerate(LABELS):
-        for variant in LETTER_PATTERNS[letter]:
+        variants = LETTER_PATTERNS[letter]
+        selected = variants if include_all_variants else variants[:1]
+        for variant in selected:
             inputs.append(render_pattern(variant))
             targets.append(one_hot_encode(index, len(LABELS)))
             letters.append(letter)
