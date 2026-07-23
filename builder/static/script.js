@@ -1,237 +1,257 @@
-const chatWindow = document.getElementById("chat-window");
-const chatForm = document.getElementById("chat-form");
-const chatInput = document.getElementById("chat-input");
-const sendButton = document.getElementById("send-btn");
-const modeButtons = [...document.querySelectorAll(".mode")];
-const modeHint = document.getElementById("mode-hint");
-const uploadButton = document.getElementById("upload-btn");
-const fileInput = document.getElementById("book-files");
-const uploadDomain = document.getElementById("upload-domain");
-const chatDomain = document.getElementById("chat-domain");
-const chatScope = document.getElementById("chat-scope");
-const uploadStatus = document.getElementById("upload-status");
-const clearMemoryButton = document.getElementById("clear-memory-btn");
-const backendSelect = document.getElementById("backend-select");
-const modelName = document.getElementById("model-name");
-const backendButton = document.getElementById("backend-btn");
-const backendMessage = document.getElementById("backend-message");
-let mode = "chat";
+const $ = selector => document.querySelector(selector);
+const $$ = selector => [...document.querySelectorAll(selector)];
+const state = { mode: "chat", lastPrompt: "", lastResponse: "", lastSources: [] };
 
-const modeCopy = {
-    chat: ["Ask anything about your imported knowledge…", "Chat mode answers from relevant library passages and remembers recent turns."],
-    explain: ["What should I explain simply?", "Explain mode teaches the retrieved concept step by step."],
-    study: ["Ask a textbook question or request a lesson…", "Study mode explains key points and gives self-check questions."],
-    code: ["Ask about an imported coding book or source file…", "Code mode focuses on programming explanations and examples."],
-    legal: ["Ask what your imported legal material says…", "Law mode explains cited material but is not legal advice."],
-    search: ["Search exact names, phrases, sections, APIs, or cases…", "Search returns matching passages without composing a reply."],
-    summary: ["Enter an exact document title, or leave blank for the library…", "Summary selects representative sentences and cites their locations."],
-    characters: ["Click send to list recurring fictional characters…", "Character analysis is most useful for novels and stories."],
+const modeHints = {
+  chat: "Natural conversation with optional cited library context.",
+  explain: "Step-by-step teaching with definitions and examples.",
+  study: "Tutor mode with a recap and self-check questions.",
+  code: "Programming-focused answers and runnable examples.",
+  law: "Careful source-grounded explanation; not legal advice.",
+  summary: "Summarize the selected category or document library.",
 };
 
-function setMode(nextMode) {
-    mode = nextMode;
-    modeButtons.forEach(button => button.classList.toggle("active", button.dataset.mode === mode));
-    chatInput.placeholder = modeCopy[mode][0];
-    modeHint.textContent = modeCopy[mode][1];
-    chatInput.focus();
+async function api(url, options = {}) {
+  const response = await fetch(url, options);
+  const payload = await response.json().catch(() => ({ error: "Unreadable server response." }));
+  if (!response.ok) throw new Error(payload.error || `Request failed (${response.status})`);
+  return payload;
 }
 
-modeButtons.forEach(button => button.addEventListener("click", () => setMode(button.dataset.mode)));
-
-function makeElement(tag, className, text) {
-    const element = document.createElement(tag);
-    if (className) element.className = className;
-    if (text !== undefined) element.textContent = text;
-    return element;
+function element(tag, className = "", text = "") {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== "") node.textContent = text;
+  return node;
 }
 
 function addMessage(text, sender = "assistant", payload = {}) {
-    const article = makeElement("article", `message ${sender}`);
-    article.appendChild(makeElement("div", "avatar", sender === "user" ? "YOU" : "AI"));
-    const bubble = makeElement("div", "bubble");
-    if (payload.heading) bubble.appendChild(makeElement("h3", "message-heading", payload.heading));
-    bubble.appendChild(makeElement("p", "message-text", text || ""));
+  const article = element("article", `message ${sender}`);
+  article.appendChild(element("div", "avatar", sender === "user" ? "YOU" : "AI"));
+  const bubble = element("div", "bubble");
+  bubble.appendChild(element("p", "", text));
 
-    if (payload.backend) {
-        const label = payload.model ? `${payload.backend} · ${payload.model}` : payload.backend;
-        bubble.appendChild(makeElement("div", "engine-label", `Reply engine: ${label}`));
-    }
+  if (sender === "assistant" && payload.backend) {
+    const meta = element("div", "answer-meta");
+    const model = payload.model ? ` · ${payload.model}` : "";
+    meta.appendChild(element("span", "", `${payload.backend}${model}`));
     if (typeof payload.confidence === "number") {
-        bubble.appendChild(makeElement("div", "confidence", `Grounding confidence: ${Math.round(payload.confidence * 100)}%`));
+      meta.appendChild(element("span", "", `grounding ${Math.round(payload.confidence * 100)}%`));
     }
+    const actions = element("div", "feedback-actions");
+    const good = element("button", "", "👍 Good");
+    const bad = element("button", "", "👎 Wrong");
+    const correct = element("button", "", "✎ Correct");
+    const feedbackPrompt = payload.prompt || state.lastPrompt;
+    const feedbackSources = payload.sources || [];
+    good.addEventListener("click", () => saveFeedback(feedbackPrompt, text, feedbackSources, 1, "", true));
+    bad.addEventListener("click", () => saveFeedback(feedbackPrompt, text, feedbackSources, -1, "", false));
+    correct.addEventListener("click", () => {
+      const correction = window.prompt("Enter the answer the model should learn:", text);
+      if (correction?.trim()) saveFeedback(feedbackPrompt, text, feedbackSources, 0, correction.trim(), true);
+    });
+    actions.append(good, bad, correct);
+    meta.appendChild(actions);
+    bubble.appendChild(meta);
+  }
 
-    if (payload.sources?.length) {
-        const details = makeElement("details", "source-list");
-        details.appendChild(makeElement("summary", "", `${payload.sources.length} cited source${payload.sources.length === 1 ? "" : "s"}`));
-        payload.sources.forEach(source => {
-            const card = makeElement("div", "source-card");
-            card.appendChild(makeElement("strong", "", `[${source.number}] ${source.title}`));
-            card.appendChild(makeElement("div", "source-location", source.location));
-            card.appendChild(makeElement("p", "", source.excerpt || ""));
-            details.appendChild(card);
-        });
-        bubble.appendChild(details);
-    }
+  if (payload.sources?.length) {
+    const details = element("details");
+    details.appendChild(element("summary", "", `${payload.sources.length} cited source${payload.sources.length === 1 ? "" : "s"}`));
+    payload.sources.forEach(source => {
+      const card = element("div", "source");
+      card.appendChild(element("strong", "", `[${source.number}] ${source.title}`));
+      card.appendChild(element("div", "", source.location));
+      card.appendChild(element("p", "", source.excerpt));
+      details.appendChild(card);
+    });
+    bubble.appendChild(details);
+  }
 
-    if (payload.results?.length) {
-        const container = makeElement("div", "result-list");
-        payload.results.forEach(result => {
-            const card = makeElement("div", "result-card");
-            card.appendChild(makeElement("strong", "", result.title));
-            card.appendChild(makeElement("div", "source-location", `${result.location} · score ${result.score.toFixed(2)}`));
-            card.appendChild(makeElement("p", "", result.excerpt));
-            container.appendChild(card);
-        });
-        bubble.appendChild(container);
-    }
-
-    const profiles = payload.characters || (payload.character ? [payload.character] : []);
-    if (profiles.length) {
-        const grid = makeElement("div", "character-grid");
-        profiles.forEach(profile => {
-            const card = makeElement("div", "character-card");
-            card.appendChild(makeElement("h3", "", profile.name));
-            card.appendChild(makeElement("div", "badge", `${profile.mentions} mentions`));
-            if (profile.first_appearance) card.appendChild(makeElement("p", "small", `First: ${profile.first_appearance}`));
-            (profile.descriptions || []).slice(0, 3).forEach(description => card.appendChild(makeElement("p", "quote", description)));
-            grid.appendChild(card);
-        });
-        bubble.appendChild(grid);
-    }
-
-    article.appendChild(bubble);
-    chatWindow.appendChild(article);
-    chatWindow.scrollTop = chatWindow.scrollHeight;
-    return article;
+  article.appendChild(bubble);
+  $("#chat").appendChild(article);
+  $("#chat").scrollTop = $("#chat").scrollHeight;
+  return article;
 }
 
-async function requestJSON(url, options = {}) {
-    const response = await fetch(url, options);
-    const data = await response.json().catch(() => ({ error: "The server returned an unreadable response." }));
-    if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
-    return data;
+async function saveFeedback(prompt, response, sources, rating, correctedResponse, approved) {
+  try {
+    const data = await api("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        response,
+        corrected_response: correctedResponse,
+        rating,
+        approved,
+        sources,
+      }),
+    });
+    addMessage(data.message, "assistant");
+  } catch (error) {
+    addMessage(error.message, "assistant");
+  }
 }
-
-chatForm.addEventListener("submit", async event => {
-    event.preventDefault();
-    const message = chatInput.value.trim();
-    if (!message && !["summary", "characters"].includes(mode)) return;
-    addMessage(message || (mode === "summary" ? "Summarize the library" : "List recurring characters"), "user");
-    chatInput.value = "";
-    sendButton.disabled = true;
-    const loading = addMessage("Searching and thinking…", "assistant");
-    try {
-        const data = await requestJSON("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                message,
-                mode,
-                domain: chatDomain.value,
-                scope: chatScope.value,
-            }),
-        });
-        loading.remove();
-        addMessage(data.answer, "assistant", data);
-        await refreshStatus();
-    } catch (error) {
-        loading.remove();
-        addMessage(error.message, "assistant");
-    } finally {
-        sendButton.disabled = false;
-        chatInput.focus();
-    }
-});
-
-chatInput.addEventListener("input", () => {
-    chatInput.style.height = "auto";
-    chatInput.style.height = `${Math.min(chatInput.scrollHeight, 180)}px`;
-});
-chatInput.addEventListener("keydown", event => {
-    if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        chatForm.requestSubmit();
-    }
-});
-
-uploadButton.addEventListener("click", async () => {
-    if (!fileInput.files.length) {
-        uploadStatus.textContent = "Select at least one document.";
-        return;
-    }
-    const formData = new FormData();
-    [...fileInput.files].forEach(file => formData.append("files", file));
-    formData.append("domain", uploadDomain.value);
-    uploadButton.disabled = true;
-    uploadStatus.textContent = "Reading, classifying, and indexing…";
-    try {
-        const data = await requestJSON("/api/upload", { method: "POST", body: formData });
-        uploadStatus.textContent = `${data.documents} file(s), ${data.words.toLocaleString()} words imported.`;
-        fileInput.value = "";
-        addMessage(`Imported ${data.documents} document(s) and created ${data.chunks} searchable passages.`, "assistant");
-        await refreshStatus();
-    } catch (error) {
-        uploadStatus.textContent = error.message;
-    } finally {
-        uploadButton.disabled = false;
-    }
-});
-
-
-backendButton.addEventListener("click", async () => {
-    backendButton.disabled = true;
-    backendMessage.textContent = "Connecting…";
-    try {
-        const data = await requestJSON("/api/backend", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                backend: backendSelect.value,
-                model: modelName.value.trim(),
-                base_url: "http://127.0.0.1:11434",
-            }),
-        });
-        backendMessage.textContent = data.message;
-        addMessage(data.message, "assistant");
-        await refreshStatus();
-    } catch (error) {
-        backendMessage.textContent = error.message;
-    } finally {
-        backendButton.disabled = false;
-    }
-});
-
-clearMemoryButton.addEventListener("click", async () => {
-    try {
-        const data = await requestJSON("/api/memory/clear", { method: "POST" });
-        addMessage(data.message, "assistant");
-        await refreshStatus();
-    } catch (error) {
-        addMessage(error.message, "assistant");
-    }
-});
 
 async function refreshStatus() {
-    const statusElement = document.getElementById("library-status");
-    const backendElement = document.getElementById("backend-status");
-    const domainStats = document.getElementById("domain-stats");
-    const list = document.getElementById("book-list");
-    const memory = document.getElementById("memory-count");
-    try {
-        const data = await requestJSON("/api/status");
-        statusElement.textContent = data.ready ? `${data.chunks} searchable passages` : "No library loaded";
-        statusElement.classList.toggle("ready", data.ready);
-        backendElement.textContent = `Reply engine: ${data.model ? `${data.backend} · ${data.model}` : data.backend}`;
-        list.replaceChildren();
-        data.titles.forEach(title => list.appendChild(makeElement("div", "book-chip", title)));
-        domainStats.replaceChildren();
-        Object.entries(data.domains || {}).forEach(([name, count]) => {
-            domainStats.appendChild(makeElement("span", "domain-chip", `${name}: ${count}`));
-        });
-        memory.textContent = `${data.memory_turns} remembered turn${data.memory_turns === 1 ? "" : "s"}`;
-    } catch (error) {
-        statusElement.textContent = "Server unavailable";
-    }
+  try {
+    const status = await api("/api/status");
+    $("#library-status").textContent = `${status.documents} documents · ${status.chunks} searchable chunks`;
+    $("#ready-dot").classList.toggle("ready", status.ready);
+    $("#engine-status").textContent = status.model ? `${status.backend} · ${status.model}` : status.backend;
+    $("#memory-status").textContent = `${status.memory_turns} remembered turns`;
+    $("#domain-stats").replaceChildren();
+    Object.entries(status.domains || {}).forEach(([name, count]) => {
+      $("#domain-stats").appendChild(element("span", "chip", `${name}: ${count}`));
+    });
+    await refreshDocuments();
+  } catch (error) {
+    $("#library-status").textContent = "Server unavailable";
+  }
 }
 
+async function refreshDocuments() {
+  const payload = await api("/api/documents");
+  const list = $("#document-list");
+  list.replaceChildren();
+  payload.documents.forEach(documentRecord => {
+    const row = element("div", "document");
+    const info = element("div");
+    info.appendChild(element("strong", "", documentRecord.title));
+    info.appendChild(element("span", "", `${documentRecord.domain} · ${documentRecord.chunk_count} chunks · #${documentRecord.id}`));
+    const remove = element("button", "icon-button", "×");
+    remove.title = "Delete document and indexed knowledge";
+    remove.addEventListener("click", async () => {
+      if (!window.confirm(`Delete “${documentRecord.title}” from files and retrieval? This does not erase it from checkpoints already trained on it.`)) return;
+      try {
+        const result = await api(`/api/documents/${documentRecord.id}`, { method: "DELETE" });
+        addMessage(result.message, "assistant");
+        await refreshStatus();
+      } catch (error) {
+        addMessage(error.message, "assistant");
+      }
+    });
+    row.append(info, remove);
+    list.appendChild(row);
+  });
+}
+
+$$('.mode').forEach(button => button.addEventListener("click", () => {
+  state.mode = button.dataset.mode;
+  $$('.mode').forEach(item => item.classList.toggle("active", item === button));
+  $("#mode-hint").textContent = modeHints[state.mode];
+  $("#prompt").placeholder = state.mode === "summary" ? "Optional: describe the desired summary focus…" : "Ask a question…";
+}));
+
+$("#composer").addEventListener("submit", async event => {
+  event.preventDefault();
+  const message = $("#prompt").value.trim();
+  if (!message && state.mode !== "summary") return;
+  state.lastPrompt = message || "Summarize the library";
+  addMessage(state.lastPrompt, "user");
+  $("#prompt").value = "";
+  const loading = addMessage("Thinking…", "assistant");
+  $("#send").disabled = true;
+  try {
+    const data = await api("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message,
+        mode: state.mode,
+        domain: $("#domain").value,
+        scope: $("#scope").value,
+      }),
+    });
+    loading.remove();
+    state.lastResponse = data.answer;
+    state.lastSources = data.sources || [];
+    addMessage(data.answer, "assistant", { ...data, prompt: state.lastPrompt });
+    await refreshStatus();
+  } catch (error) {
+    loading.remove();
+    addMessage(error.message, "assistant");
+  } finally {
+    $("#send").disabled = false;
+    $("#prompt").focus();
+  }
+});
+
+$("#prompt").addEventListener("input", event => {
+  event.target.style.height = "auto";
+  event.target.style.height = `${Math.min(event.target.scrollHeight, 180)}px`;
+});
+$("#prompt").addEventListener("keydown", event => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    $("#composer").requestSubmit();
+  }
+});
+
+$("#upload-button").addEventListener("click", async () => {
+  const files = $("#files").files;
+  if (!files.length) {
+    $("#upload-message").textContent = "Select at least one file.";
+    return;
+  }
+  const form = new FormData();
+  [...files].forEach(file => form.append("files", file));
+  form.append("domain", $("#upload-domain").value);
+  form.append("ocr_scanned", $("#ocr-scanned").checked);
+  form.append("replace_same_name", $("#replace-same-name").checked);
+  $("#upload-message").textContent = "Extracting and indexing…";
+  try {
+    const result = await api("/api/upload", { method: "POST", body: form });
+    $("#upload-message").textContent = `${result.added} added, ${result.duplicates} duplicates skipped.`;
+    $("#files").value = "";
+    addMessage(result.results.map(item => item.message).join("\n"), "assistant");
+    await refreshStatus();
+  } catch (error) {
+    $("#upload-message").textContent = error.message;
+  }
+});
+
+$("#backend-button").addEventListener("click", async () => {
+  $("#backend-message").textContent = "Loading…";
+  try {
+    const result = await api("/api/backend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        backend: $("#backend").value,
+        checkpoint: $("#checkpoint").value.trim(),
+        model: $("#model").value.trim(),
+        base_url: $("#base-url").value.trim(),
+      }),
+    });
+    $("#backend-message").textContent = result.message;
+    addMessage(result.message, "assistant");
+    await refreshStatus();
+  } catch (error) {
+    $("#backend-message").textContent = error.message;
+  }
+});
+
+$("#export-button").addEventListener("click", async () => {
+  try {
+    const result = await api("/api/training/export", { method: "POST" });
+    $("#export-message").textContent = `${result.documents} documents and ${result.chat_examples} approved chats exported.`;
+    addMessage(`Corpus: ${result.corpus}\nChat examples: ${result.chats}`, "assistant");
+  } catch (error) {
+    $("#export-message").textContent = error.message;
+  }
+});
+
+$("#clear-memory").addEventListener("click", async () => {
+  try {
+    const result = await api("/api/memory/clear", { method: "POST" });
+    addMessage(result.message, "assistant");
+    await refreshStatus();
+  } catch (error) {
+    addMessage(error.message, "assistant");
+  }
+});
+
+$("#refresh-documents").addEventListener("click", refreshDocuments);
 refreshStatus();

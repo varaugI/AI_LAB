@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "type": "conversation_memory",
+  "max_turns": 30,
+  "turns": [
+    {
+      "user": "tell me about game of thrones",
+      "assistant": "Chapter 70 Chapter 71 Chapter 72 Appendix House Baratheon House Stark House Lannister House Arryn House Tully House Tyrell House Greyjoy House Martell The Old Dynasty: House Targaryen Dedication Acknowledgments Other Books by This Author About the Author Preview of A Clash of Kings Preview of A Game of Thrones Graphic Novel [1] If that’s true, Lord Eddard, tell me … why is it always the innocents who su\u0000er most, when you high lords play your game of thrones? [2]",
+      "timestamp": "2026-07-23T17:48:51.675303+00:00",
+      "sources": [
+        {
+          "title": "A Game of Thrones",
+          "location": "page 7, part 1, word 1",
+          "source": "C:\\Users\\varua\\gaurav\\AI_LAB\\uploaded_documents\\OceanofPDF.com_A_Game_of_Thrones_-_George_R_R_Martin_2.pdf"
+        },
+        {
+          "title": "A Game of Thrones",
+          "location": "page 672, part 1, word 146",
+          "source": "C:\\Users\\varua\\gaurav\\AI_LAB\\uploaded_documents\\OceanofPDF.com_A_Game_of_Thrones_-_George_R_R_Martin_2.pdf"
+        }
+      ]
+    },
+    {
+      "user": "quote me jon snow",
+      "assistant": "Chapter 70 Chapter 71 Chapter 72 Appendix House Baratheon House Stark House Lannister House Arryn House Tully House Tyrell House Greyjoy House Martell The Old Dynasty: House Targaryen Dedication Acknowledgments Other Books by This Author About the Author Preview of A Clash of Kings Preview of A Game of Thrones Graphic Novel [1]",
+      "timestamp": "2026-07-23T17:49:16.809064+00:00",
+      "sources": [
+        {
+          "title": "A Game of Thrones",
+          "location": "page 7, part 1, word 1",
+          "source": "C:\\Users\\varua\\gaurav\\AI_LAB\\uploaded_documents\\OceanofPDF.com_A_Game_of_Thrones_-_George_R_R_Martin_2.pdf"
+        }
+      ]
+    }
+  ]
+}

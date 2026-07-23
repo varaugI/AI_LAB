@@ -1,3 +1,3 @@
 #!/usr/bin/env sh
-cd "$(dirname "$0")"
-python -m builder.app
+set -eu
+python run_ai_lab.py

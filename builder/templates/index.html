@@ -1,110 +1,132 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI LAB Knowledge Assistant</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI LAB — Trainable Knowledge Assistant</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<div class="app-shell">
-    <aside class="sidebar">
-        <div>
-            <p class="eyebrow">LOCAL KNOWLEDGE AI</p>
-            <h1>AI LAB Assistant</h1>
-            <p class="muted">Chat with novels, textbooks, law material, coding books, notes, and source code.</p>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="eyebrow">PRIVATE • LOCAL • TRAINABLE</span>
+      <h1>AI LAB</h1>
+      <p>Your own transformer, document library, retrieval system, and supervised chat-training pipeline.</p>
+    </div>
+
+    <section class="card stats-card">
+      <div class="section-title"><h2>Knowledge library</h2><span id="ready-dot" class="dot"></span></div>
+      <p id="library-status" class="status">Checking library…</p>
+      <div id="domain-stats" class="chips"></div>
+      <button id="refresh-documents" class="link-button">Refresh documents</button>
+      <div id="document-list" class="document-list"></div>
+    </section>
+
+    <section class="card">
+      <h2>Add data</h2>
+      <label class="upload-box" for="files">
+        <strong>Select documents or code</strong>
+        <span>PDF, EPUB, DOCX, text, data, and source files</span>
+        <input id="files" type="file" multiple>
+      </label>
+      <div class="two-fields">
+        <label>Category
+          <select id="upload-domain">
+            <option value="auto">Auto-detect</option>
+            <option value="general">General</option>
+            <option value="school">School</option>
+            <option value="law">Law</option>
+            <option value="programming">Programming</option>
+            <option value="fiction">Fiction</option>
+          </select>
+        </label>
+        <label class="check-field"><input id="ocr-scanned" type="checkbox"> OCR scanned PDFs</label>
+      </div>
+      <label class="check-field"><input id="replace-same-name" type="checkbox"> Replace an older file with the same name</label>
+      <button id="upload-button" class="button secondary">Import knowledge</button>
+      <p id="upload-message" class="small"></p>
+    </section>
+
+    <section class="card">
+      <h2>Reply engine</h2>
+      <label>Engine
+        <select id="backend">
+          <option value="extractive">Grounded offline fallback</option>
+          <option value="local">My from-scratch AI LAB transformer</option>
+          <option value="huggingface">Fine-tuned Hugging Face model</option>
+          <option value="ollama">Ollama model</option>
+          <option value="compatible">OpenAI-compatible server</option>
+        </select>
+      </label>
+      <label id="checkpoint-field">Checkpoint directory
+        <input id="checkpoint" placeholder="data/checkpoints/my-model/final">
+      </label>
+      <label>Model name
+        <input id="model" value="llama3.2:3b" placeholder="model name">
+      </label>
+      <label>Server URL
+        <input id="base-url" value="http://127.0.0.1:11434" placeholder="http://127.0.0.1:11434">
+      </label>
+      <button id="backend-button" class="button secondary">Load reply engine</button>
+      <p id="backend-message" class="small"></p>
+    </section>
+
+    <section class="card training-card">
+      <h2>Training data</h2>
+      <p>Positive or corrected replies become supervised examples. Imported documents can be exported for continued pretraining.</p>
+      <button id="export-button" class="button ghost">Export training datasets</button>
+      <p id="export-message" class="small"></p>
+    </section>
+
+    <button id="clear-memory" class="button ghost danger-ghost">Clear chat memory</button>
+  </aside>
+
+  <main class="main">
+    <header class="toolbar">
+      <div class="mode-tabs" role="tablist">
+        <button class="mode active" data-mode="chat">Chat</button>
+        <button class="mode" data-mode="explain">Explain</button>
+        <button class="mode" data-mode="study">Study</button>
+        <button class="mode" data-mode="code">Code</button>
+        <button class="mode" data-mode="law">Law</button>
+        <button class="mode" data-mode="summary">Summary</button>
+      </div>
+      <div class="toolbar-controls">
+        <select id="scope" title="Knowledge scope">
+          <option value="hybrid">Library + model knowledge</option>
+          <option value="library">Strict library only</option>
+        </select>
+        <select id="domain" title="Library category">
+          <option value="all">All categories</option>
+          <option value="general">General</option>
+          <option value="school">School</option>
+          <option value="law">Law</option>
+          <option value="programming">Programming</option>
+          <option value="fiction">Fiction</option>
+        </select>
+        <span id="engine-status" class="engine-pill">extractive</span>
+      </div>
+    </header>
+
+    <section id="chat" class="chat" aria-live="polite">
+      <article class="message assistant">
+        <div class="avatar">AI</div>
+        <div class="bubble">
+          <h3>This version separates memory, retrieval, and real model training.</h3>
+          <p>Importing a book makes it searchable immediately. Continued pretraining changes neural weights. Rating or correcting a reply creates supervised chat-training data.</p>
         </div>
+      </article>
+    </section>
 
-        <section class="panel">
-            <h2>Library</h2>
-            <p id="library-status" class="status">Checking…</p>
-            <p id="backend-status" class="small muted">Reply engine: checking…</p>
-            <div id="domain-stats" class="domain-stats"></div>
-            <div id="book-list" class="book-list"></div>
-        </section>
-
-        <section class="panel">
-            <h2>Add knowledge</h2>
-            <label class="upload-box" for="book-files">
-                <span>Choose books, documents, data, or code</span>
-                <input id="book-files" type="file" multiple>
-            </label>
-            <label class="field-label" for="upload-domain">Document category</label>
-            <select id="upload-domain" class="select-control">
-                <option value="auto">Detect automatically</option>
-                <option value="fiction">Novel / fiction</option>
-                <option value="school">School / textbook</option>
-                <option value="law">Law</option>
-                <option value="programming">Programming</option>
-                <option value="general">General</option>
-            </select>
-            <button id="upload-btn" class="button secondary">Import selected files</button>
-            <p id="upload-status" class="small muted"></p>
-        </section>
-
-        <section class="panel">
-            <h2>Reply engine</h2>
-            <label class="field-label" for="backend-select">Engine</label>
-            <select id="backend-select" class="select-control">
-                <option value="extractive">Built-in offline</option>
-                <option value="ollama">Local Ollama model</option>
-            </select>
-            <label class="field-label" for="model-name">Ollama model</label>
-            <input id="model-name" class="text-control" value="llama3.2:3b" aria-label="Ollama model name">
-            <button id="backend-btn" class="button secondary">Apply reply engine</button>
-            <p id="backend-message" class="small muted"></p>
-        </section>
-
-        <button id="clear-memory-btn" class="button ghost">Clear conversation memory</button>
-    </aside>
-
-    <main class="main">
-        <header class="toolbar">
-            <div class="mode-group" role="group" aria-label="Assistant mode">
-                <button class="mode active" data-mode="chat">Chat</button>
-                <button class="mode" data-mode="explain">Explain</button>
-                <button class="mode" data-mode="study">Study</button>
-                <button class="mode" data-mode="code">Code</button>
-                <button class="mode" data-mode="legal">Law</button>
-                <button class="mode" data-mode="search">Search</button>
-                <button class="mode" data-mode="summary">Summary</button>
-                <button class="mode" data-mode="characters">Characters</button>
-            </div>
-            <div class="toolbar-meta">
-                <select id="chat-scope" class="select-control compact" aria-label="Knowledge scope">
-                    <option value="hybrid">Library + model</option>
-                    <option value="library">Library only</option>
-                </select>
-                <select id="chat-domain" class="select-control compact" aria-label="Search domain">
-                    <option value="all">All knowledge</option>
-                    <option value="fiction">Fiction</option>
-                    <option value="school">School</option>
-                    <option value="law">Law</option>
-                    <option value="programming">Programming</option>
-                    <option value="general">General</option>
-                </select>
-                <div id="memory-count" class="memory-count">0 remembered turns</div>
-            </div>
-        </header>
-
-        <section id="chat-window" class="chat-window" aria-live="polite">
-            <article class="message assistant">
-                <div class="avatar">AI</div>
-                <div class="bubble">
-                    <strong>Feed me your material, then chat with it.</strong>
-                    <p>I retrieve relevant passages from your library and cite them. Connect a local Ollama model for more natural ChatGPT-like explanations and conversations.</p>
-                </div>
-            </article>
-        </section>
-
-        <form id="chat-form" class="composer">
-            <div class="composer-inner">
-                <textarea id="chat-input" rows="1" placeholder="Ask anything about your imported knowledge…"></textarea>
-                <button id="send-btn" type="submit" class="send" aria-label="Send">➜</button>
-            </div>
-            <p id="mode-hint" class="hint">Chat mode answers from relevant library passages and remembers recent turns.</p>
-        </form>
-    </main>
+    <form id="composer" class="composer">
+      <div class="composer-box">
+        <textarea id="prompt" rows="1" placeholder="Ask a question…"></textarea>
+        <button id="send" type="submit" aria-label="Send">➜</button>
+      </div>
+      <div class="composer-meta"><span id="mode-hint">Natural conversation with optional cited library context.</span><span id="memory-status">0 remembered turns</span></div>
+    </form>
+  </main>
 </div>
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>

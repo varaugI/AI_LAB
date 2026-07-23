@@ -1,0 +1,6 @@
+-r requirements-core.txt
+transformers
+datasets
+peft
+accelerate
+safetensors

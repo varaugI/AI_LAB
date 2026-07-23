@@ -1,4 +1,3 @@
 @echo off
-cd /d %~dp0
-python -m builder.app
-pause
+python run_ai_lab.py
+if errorlevel 1 pause
